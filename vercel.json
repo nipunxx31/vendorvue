@@ -1,5 +1,24 @@
 {
+  "buildCommand": "cd frontend && npm run build",
+  "outputDirectory": "frontend/dist",
+  "public": "frontend/dist",
+  "rewrites": [
+    {
+      "source": "/api/(.*)",
+      "destination": "/api/[...slug].js"
+    }
+  ],
   "routes": [
-    { "src": "/api/(.*)", "dest": "/api/$1" }
-  ]
+    {
+      "src": "/(.+)",
+      "dest": "/frontend/dist/$1"
+    },
+    {
+      "src": "/",
+      "dest": "/frontend/dist/index.html"
+    }
+  ],
+  "env": {
+    "BACKEND_URL": "@backend_url"
+  }
 }

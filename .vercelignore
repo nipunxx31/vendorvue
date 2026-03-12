@@ -1,0 +1,42 @@
+# Build and dependencies
+node_modules
+dist
+build
+
+# Backend files (Express server - doesn't run on Vercel)
+backend
+backend/
+
+# Environment  
+.env
+.env.local
+.env.*.local
+
+# Version control
+.git
+.gitignore
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test files
+*.test.js
+*.spec.js
+__tests__
+coverage
+
+# Documentation files (optional to include)
+*.md
+!README.md
+
+# Other
+android/build
+.gradle

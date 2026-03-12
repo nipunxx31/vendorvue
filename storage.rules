@@ -1,0 +1,117 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isVendor(vendorId) {
+      return isAuthenticated() && 
+             request.auth.uid == vendorId;
+    }
+
+    function getUserFromStorage(vendorId) {
+      return vendorId;
+    }
+
+    // ==================== VENDOR IMAGES ====================
+    // vendors/{vendorId}/images/{imageName}
+    match /vendors/{vendorId}/images/{imageName} {
+      // Everyone can read vendor images
+      allow read: if true;
+      
+      // Only the vendor can upload to their folder
+      allow write: if isVendor(vendorId) && 
+                      request.resource.size < 5 * 1024 * 1024 && // 5MB limit
+                      request.resource.contentType.matches('image/.*');
+      
+      // Vendor can delete their own images
+      allow delete: if isVendor(vendorId);
+    }
+
+    // ==================== MENU IMAGES ====================
+    // vendors/{vendorId}/menuImages/{imageName}
+    match /vendors/{vendorId}/menuImages/{imageName} {
+      // Everyone can read menu images
+      allow read: if true;
+      
+      // Only the vendor can upload menu images
+      allow write: if isVendor(vendorId) && 
+                      request.resource.size < 5 * 1024 * 1024 && // 5MB limit
+                      request.resource.contentType.matches('image/.*');
+      
+      // Vendor can delete their menu images
+      allow delete: if isVendor(vendorId);
+    }
+
+    // ==================== VENDOR QR CODES ====================
+    // vendors/{vendorId}/qrcodes/{fileName}
+    match /vendors/{vendorId}/qrcodes/{fileName} {
+      // Everyone can read QR codes
+      allow read: if true;
+      
+      // Only vendor can upload
+      allow write: if isVendor(vendorId) && 
+                      request.resource.size < 2 * 1024 * 1024 && // 2MB limit
+                      request.resource.contentType.matches('image/.*');
+    }
+
+    // ==================== CUSTOMER AVATARS ====================
+    // customers/{customerId}/avatars/{fileName}
+    match /customers/{customerId}/avatars/{fileName} {
+      // Authenticated users can read
+      allow read: if isAuthenticated();
+      
+      // Only the customer can upload their avatar
+      allow write: if isAuthenticated() && 
+                      request.auth.uid == customerId && 
+                      request.resource.size < 5 * 1024 * 1024 && // 5MB limit
+                      request.resource.contentType.matches('image/.*');
+      
+      // Customer can delete their avatar
+      allow delete: if isAuthenticated() && request.auth.uid == customerId;
+    }
+
+    // ==================== SUPPORT ATTACHMENTS ====================
+    // support/{userId}/attachments/{fileName}
+    match /support/{userId}/attachments/{fileName} {
+      // User can read their own attachments
+      allow read: if isAuthenticated() && request.auth.uid == userId;
+      
+      // Authenticated users can upload support attachments
+      allow write: if isAuthenticated() && 
+                      request.auth.uid == userId && 
+                      request.resource.size < 10 * 1024 * 1024; // 10MB limit
+      
+      // User can delete their attachments
+      allow delete: if isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // ==================== ADMIN UPLOADS ====================
+    // admin/{folder}/{fileName}
+    match /admin/{allPaths=**} {
+      // Admins (role-based) can read/write
+      allow read, write: if isAuthenticated() && 
+                            request.auth.customClaims.role == 'admin';
+    }
+
+    // ==================== PUBLIC ASSETS ====================
+    // assets/public/{fileName}
+    match /assets/public/{fileName} {
+      // Everyone can read public assets
+      allow read: if true;
+      
+      // Only authenticated users (future: admin) can upload
+      allow write: if isAuthenticated();
+    }
+
+    // ==================== CATCH-ALL ====================
+    // Deny all other access
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

@@ -1,0 +1,186 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && 
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    function isVendor() {
+      return isAuthenticated() && 
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'vendor';
+    }
+
+    function isCustomer() {
+      return isAuthenticated() && 
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'customer';
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isVendorOwner(vendorId) {
+      return isAuthenticated() && 
+             get(/databases/$(database)/documents/vendors/$(vendorId)).data.ownerId == request.auth.uid;
+    }
+
+    // ==================== USERS COLLECTION ====================
+    match /users/{userId} {
+      // Users can read their own document
+      allow read: if isOwner(userId);
+      
+      // Only authenticated users can read other user info (limited fields)
+      allow read: if isAuthenticated();
+      
+      // Users can only create their own document
+      allow create: if isOwner(userId) && 
+                      request.resource.data.keys().hasOnly(['email', 'displayName', 'role', 'uid', 'createdAt', 'updatedAt']);
+      
+      // Users can only update their own document
+      allow update: if isOwner(userId) &&
+                       request.resource.data.role == resource.data.role; // Can't change own role
+      
+      // Admin can update any user's role
+      allow update: if isAdmin() && request.resource.data.keys().hasOnly(['role', 'updatedAt']);
+      
+      // Only admin can delete users
+      allow delete: if isAdmin();
+    }
+
+    // ==================== VENDORS COLLECTION ====================
+    match /vendors/{vendorId} {
+      // Everyone can read vendor info (public data)
+      allow read: if true;
+      
+      // Vendors can create their vendor profile
+      allow create: if isVendor() && vendorId == request.auth.uid;
+      
+      // Vendor can update their own info, admin can update any
+      allow update: if (isVendorOwner(vendorId) || isAdmin());
+      
+      // Only admin can delete vendors
+      allow delete: if isAdmin();
+    }
+
+    // ==================== MENU ITEMS COLLECTION ====================
+    match /menuItems/{menuItemId} {
+      // Everyone can read available menu items
+      allow read: if true;
+      
+      // Vendor can add menu items
+      allow create: if isVendor() && 
+                      get(/databases/$(database)/documents/vendors/$(request.resource.data.vendorId)).data.ownerId == request.auth.uid;
+      
+      // Vendor can update their menu items
+      allow update: if isVendor() && 
+                      isVendorOwner(resource.data.vendorId);
+      
+      // Vendor can delete their menu items
+      allow delete: if isVendor() && 
+                      isVendorOwner(resource.data.vendorId);
+    }
+
+    // ==================== ORDERS COLLECTION ====================
+    match /orders/{orderId} {
+      // Customer can read their orders
+      allow read: if isAuthenticated() && 
+                     (resource.data.customerId == request.auth.uid || 
+                      resource.data.vendorId == request.auth.uid ||
+                      isAdmin());
+      
+      // Customer can create orders
+      allow create: if isCustomer() && 
+                       request.resource.data.customerId == request.auth.uid;
+      
+      // Vendor can update order status for their orders
+      allow update: if (isVendor() && isVendorOwner(resource.data.vendorId)) ||
+                       (isCustomer() && resource.data.customerId == request.auth.uid && request.resource.data.rating != null) ||
+                       isAdmin();
+      
+      // Only admin can delete orders
+      allow delete: if isAdmin();
+    }
+
+    // ==================== CUSTOMERS COLLECTION ====================
+    match /customers/{customerId} {
+      // Customer can read their own profile
+      allow read: if isOwner(customerId);
+      
+      // Customer can create profile
+      allow create: if isOwner(customerId);
+      
+      // Customer can update their profile
+      allow update: if isOwner(customerId) || isAdmin();
+      
+      // Only admin can delete customers
+      allow delete: if isAdmin();
+    }
+
+    // ==================== SUPPORT MESSAGES COLLECTION ====================
+    match /supportMessages/{messageId} {
+      // User can read their own messages
+      allow read: if isAuthenticated() && 
+                     (resource.data.userId == request.auth.uid ||
+                      resource.data.assignedVendorId == request.auth.uid ||
+                      isAdmin());
+      
+      // Users can create support messages
+      allow create: if isAuthenticated() && 
+                       request.resource.data.userId == request.auth.uid;
+      
+      // User and assigned vendor can update
+      allow update: if isAuthenticated() &&
+                       (resource.data.userId == request.auth.uid ||
+                        resource.data.assignedVendorId == request.auth.uid ||
+                        isAdmin());
+      
+      // Only admin can delete
+      allow delete: if isAdmin();
+    }
+
+    // ==================== PAYMENT VERIFICATION COLLECTION ====================
+    match /paymentVerifications/{paymentId} {
+      // User can read their own payments
+      allow read: if isAuthenticated() && 
+                     (resource.data.userId == request.auth.uid || isAdmin());
+      
+      // System can create payment records (via Cloud Functions)
+      allow create: if isAuthenticated();
+      
+      // Only admin can update or delete
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // ==================== VENDOR RATINGS COLLECTION ====================
+    match /vendorRatings/{ratingId} {
+      // Everyone can read ratings
+      allow read: if true;
+      
+      // Customers can create ratings
+      allow create: if isCustomer() && 
+                       request.resource.data.customerId == request.auth.uid;
+      
+      // Customers can update their own ratings
+      allow update: if isCustomer() && 
+                       resource.data.customerId == request.auth.uid;
+      
+      // Only admin can delete
+      allow delete: if isAdmin();
+    }
+
+    // ==================== CATCH-ALL ====================
+    // Deny all other access
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
