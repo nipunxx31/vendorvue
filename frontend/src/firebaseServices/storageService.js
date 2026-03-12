@@ -146,7 +146,7 @@ export const deleteImageByURL = async (imageURL) => {
     try {
         // Extract the file path from the download URL
         const urlParams = new URL(imageURL).searchParams;
-        const filePath = decodeURIComponent(urlParams.get(''); // This is a simplified approach
+        const filePath = decodeURIComponent(urlParams.get('path')); // This is a simplified approach
 
         // Alternatively, pass the full path directly
         // For production, you should store the file path in Firestore
@@ -221,6 +221,42 @@ export const uploadMultipleImages = async (vendorId, files, type = 'menu') => {
         return downloadURLs;
     } catch (error) {
         console.error('Error uploading multiple images:', error);
+        throw error;
+    }
+};
+
+/**
+ * Generic upload file function
+ * @param {string} path - Storage path
+ * @param {File} file - File to upload
+ * @returns {Promise<string>} Download URL
+ */
+export const uploadFile = async (path, file) => {
+    try {
+        const fileName = `${Date.now()}_${file.name}`;
+        const storageRef = ref(storage, `${path}/${fileName}`);
+        
+        await uploadBytes(storageRef, file);
+        const downloadURL = await getDownloadURL(storageRef);
+        
+        return downloadURL;
+    } catch (error) {
+        console.error('Error uploading file:', error);
+        throw error;
+    }
+};
+
+/**
+ * Get file download URL
+ * @param {string} filePath - Storage file path
+ * @returns {Promise<string>} Download URL
+ */
+export const getFileUrl = async (filePath) => {
+    try {
+        const storageRef = ref(storage, filePath);
+        return await getDownloadURL(storageRef);
+    } catch (error) {
+        console.error('Error getting file URL:', error);
         throw error;
     }
 };

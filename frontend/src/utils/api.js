@@ -18,14 +18,13 @@ import { db } from '../firebase';
 import { uploadFile, getFileUrl } from '../firebaseServices/storageService';
 import {
     createOrder,
-    getOrderById,
-    getCustomerOrders,
+    getOrder,
     updateOrderStatus,
 } from '../firebaseServices/orderService';
 import {
     createVendor,
     getVendor,
-    getVendors,
+    getAllVendors,
     updateVendor,
     deleteVendor,
 } from '../firebaseServices/vendorService';
@@ -58,6 +57,8 @@ export const registerVendor = (data) => {
 };
 
 export const getVendorById = (id) => getVendor(id);
+
+export const getVendors = getAllVendors;
 
 export const getVendorMenu = (id) => {
     return getDocs(query(collection(db, 'menus'), where('vendorId', '==', id)));
@@ -100,7 +101,8 @@ export const deleteMenuItem = (id) => deleteDoc(doc(db, 'menus', id));
 // ==================== Order APIs ====================
 
 export const createOrderAPI = createOrder;
-export const getOrderByIdAPI = getOrderById;
+export const getOrderByIdAPI = getOrder;
+export const getOrderById = getOrder;
 export const getOrderByNumber = (number) => {
     return getDocs(
         query(collection(db, 'orders'), where('orderNumber', '==', number))
@@ -285,10 +287,9 @@ export const getGoogleMapsDirectionsUrl = (lat1, lon1, lat2, lon2) => {
 // Re-export commonly used functions for backward compatibility
 export {
     createOrder,
-    getOrderById,
-    getCustomerOrders,
+    getOrder,
     updateOrderStatus,
-    getVendors,
+    getAllVendors,
     getVendor,
     updateVendor,
     deleteVendor,
@@ -316,42 +317,6 @@ export const adminUpdateCustomerWallet = (token, phone, amount, description) =>
   adminApi.patch(`/customers/${phone}/wallet`, { amount, description }, {
     headers: { Authorization: `Bearer ${token}` }
   });
-
-// Support Message APIs
-export const sendSupportMessage = (message, senderType, senderId, senderPhone) =>
-  api.post('/support/message', { message, senderType, senderId, senderPhone });
-
-export const getMySupportMessages = (senderType, senderId) =>
-  api.get(`/support/messages/${senderType}/${senderId}`);
-
-export const adminGetConversations = (token) =>
-  adminApi.get('/support/conversations', { headers: { Authorization: `Bearer ${token}` } });
-
-export const adminGetThreadMessages = (token, threadId) =>
-  adminApi.get(`/support/messages/${threadId}`, { headers: { Authorization: `Bearer ${token}` } });
-
-export const adminReplySupport = (token, threadId, message) =>
-  adminApi.post('/support/reply', { threadId, message }, { headers: { Authorization: `Bearer ${token}` } });
-
-// Utility function for Haversine distance calculation
-export const calculateDistance = (lat1, lon1, lat2, lon2) => {
-  const R = 6371; // Earth radius in km
-  const dLat = (lat2 - lat1) * Math.PI / 180;
-  const dLon = (lon2 - lon1) * Math.PI / 180;
-  const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-    Math.sin(dLon / 2) * Math.sin(dLon / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return R * c;
-};
-
-// Google Maps directions URL helper
-export const getGoogleMapsDirectionsUrl = (lat, lng, address) => {
-  if (address) {
-    return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(address)}`;
-  }
-  return `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
-};
 
 export default api;
 

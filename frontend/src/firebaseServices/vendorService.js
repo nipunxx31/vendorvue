@@ -268,3 +268,18 @@ export const toggleMenuItemAvailability = async (menuItemId, available) => {
         throw error;
     }
 };
+
+/**
+ * Delete vendor
+ * @param {string} vendorId - Vendor ID
+ * @returns {Promise<void>}
+ */
+export const deleteVendor = async (vendorId) => {
+    try {
+        const vendorRef = doc(db, 'vendors', vendorId);
+        await deleteDoc(vendorRef);
+    } catch (error) {
+        console.error('Error deleting vendor:', error);
+        throw error;
+    }
+};
