@@ -1,16 +1,15 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { adminGetConversations, adminGetThreadMessages, adminReplySupport } from '../../utils/api';
+import { adminGetConversations as fetchConversationsAPI, adminGetThreadMessages as fetchThreadMessagesAPI, adminReplySupport as sendReplyAPI } from '../../firebaseServices/supportService';
 
 export default function AdminSupport() {
   const navigate = useNavigate();
-  const token = localStorage.getItem('adminToken');
+  const adminToken = localStorage.getItem('adminToken');
   const adminUsername = localStorage.getItem('adminUsername') || 'Admin';
 
   const [conversations, setConversations] = useState([]);
   const [selectedThread, setSelectedThread] = useState(null);
   const [threadMessages, setThreadMessages] = useState([]);
-  const [senderInfo, setSenderInfo] = useState({});
   const [loading, setLoading] = useState(true);
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [sending, setSending] = useState(false);
@@ -18,14 +17,14 @@ export default function AdminSupport() {
   const messagesEndRef = useRef(null);
 
   useEffect(() => {
-    if (!token) {
+    if (!adminToken) {
       navigate('/admin/login');
       return;
     }
     fetchConversations();
     const interval = setInterval(fetchConversations, 15000); // Poll every 15 seconds
     return () => clearInterval(interval);
-  }, [token, navigate]);
+  }, [adminToken, navigate]);
 
   useEffect(() => {
     if (selectedThread) {
@@ -33,39 +32,33 @@ export default function AdminSupport() {
       const interval = setInterval(() => fetchThreadMessages(selectedThread), 10000);
       return () => clearInterval(interval);
     }
-  }, [selectedThread, token]);
+  }, [selectedThread]);
 
   const fetchConversations = async () => {
     try {
-      const response = await adminGetConversations(token);
+      const response = await fetchConversationsAPI();
       setConversations(response.data.conversations || []);
       setLoading(false);
     } catch (error) {
       console.error('Error fetching conversations:', error);
-      alert(error.response?.data?.error || 'Failed to load conversations');
+      alert('Failed to load conversations');
       setLoading(false);
-      if (error.response?.status === 401) {
-        localStorage.removeItem('adminToken');
-        localStorage.removeItem('adminUsername');
-        navigate('/admin/login');
-      }
     }
   };
 
   const fetchThreadMessages = async (threadId) => {
-    if (!threadId || !token) return;
+    if (!threadId) return;
 
     setLoadingMessages(true);
     try {
-      const response = await adminGetThreadMessages(token, threadId);
+      const [userType, userContact] = threadId.split(':');
+      const response = await fetchThreadMessagesAPI(userType, userContact);
       setThreadMessages(response.data.messages || []);
-      setSenderInfo(response.data.senderInfo || {});
       scrollToBottom();
     } catch (error) {
       console.error('Error fetching thread messages:', error);
-      setSenderInfo({});
       setThreadMessages([]);
-      alert(error.response?.data?.error || 'Failed to load messages');
+      alert('Failed to load messages');
     } finally {
       setLoadingMessages(false);
     }
@@ -82,17 +75,17 @@ export default function AdminSupport() {
 
   const handleSendReply = async (e) => {
     e.preventDefault();
-    if (!replyMessage.trim() || !selectedThread || !token) return;
+    if (!replyMessage.trim() || !selectedThread) return;
 
     setSending(true);
     try {
-      await adminReplySupport(token, selectedThread, replyMessage.trim());
+      await sendReplyAPI(selectedThread, replyMessage.trim());
       setReplyMessage('');
       await fetchThreadMessages(selectedThread);
-      await fetchConversations(); // Refresh conversations to update unread count
+      await fetchConversations(); // Refresh conversations
     } catch (error) {
       console.error('Error sending reply:', error);
-      alert(error.response?.data?.error || 'Failed to send reply. Please try again.');
+      alert('Failed to send reply. Please try again.');
     } finally {
       setSending(false);
     }

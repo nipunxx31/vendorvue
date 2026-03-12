@@ -10,14 +10,6 @@ export default defineConfig({
   },
   server: {
     port: 3000,
-    // Proxy API calls to backend during development
-    proxy: {
-      '/api': {
-        target: process.env.BACKEND_URL || 'http://localhost:5000',
-        changeOrigin: true,
-        rewrite: (path) => path
-      }
-    }
   },
   preview: {
     port: 3000

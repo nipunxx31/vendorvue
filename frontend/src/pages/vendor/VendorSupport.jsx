@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { sendSupportMessage, getMySupportMessages } from '../../utils/api';
+import { sendSupportMessage, getMySupportMessages } from '../../firebaseServices/supportService';
 
 export default function VendorSupport() {
   const navigate = useNavigate();
@@ -27,7 +27,7 @@ export default function VendorSupport() {
     setLoading(true);
     try {
       const response = await getMySupportMessages('vendor', vendorId);
-      setMessages(response.data.messages || []);
+      setMessages(response.messages || []);
       scrollToBottom();
     } catch (error) {
       console.error('Error fetching messages:', error);
@@ -46,12 +46,12 @@ export default function VendorSupport() {
 
     setSending(true);
     try {
-      await sendSupportMessage(newMessage.trim(), 'vendor', vendorId);
+      await sendSupportMessage(newMessage.trim(), 'vendor', vendorId, vendorId);
       setNewMessage('');
       await fetchMessages();
     } catch (error) {
       console.error('Error sending message:', error);
-      alert(error.response?.data?.error || 'Failed to send message. Please try again.');
+      alert('Failed to send message. Please try again.');
     } finally {
       setSending(false);
     }

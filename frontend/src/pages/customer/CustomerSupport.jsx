@@ -1,12 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { sendSupportMessage, getMySupportMessages } from '../../utils/api';
-import axios from 'axios';
-
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
-const customerApi = axios.create({
-  baseURL: API_URL,
-});
+import { sendSupportMessage, getMySupportMessages, watchMyMessages } from '../../firebaseServices/supportService';
 
 export default function CustomerSupport() {
   const navigate = useNavigate();
@@ -15,38 +9,27 @@ export default function CustomerSupport() {
   const [newMessage, setNewMessage] = useState('');
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
-  const [customerId, setCustomerId] = useState(null);
   const messagesEndRef = useRef(null);
+  const unsubscribeRef = useRef(null);
 
   useEffect(() => {
     if (!customerPhone) {
       navigate('/customer/login');
       return;
     }
-    fetchCustomerAndMessages();
-    const interval = setInterval(fetchMessages, 10000); // Poll every 10 seconds
-    return () => clearInterval(interval);
+    fetchMessages();
+    return () => {
+      if (unsubscribeRef.current) {
+        unsubscribeRef.current();
+      }
+    };
   }, [customerPhone, navigate]);
 
-  const fetchCustomerAndMessages = async () => {
-    try {
-      // Get customer profile to get ID
-      const customerRes = await customerApi.get(`/customers/${customerPhone}`);
-      setCustomerId(customerRes.data._id);
-      await fetchMessages(customerRes.data._id);
-    } catch (error) {
-      console.error('Error fetching customer:', error);
-      alert('Failed to load customer profile');
-    }
-  };
-
-  const fetchMessages = async (id = customerId) => {
-    if (!id) return;
-    
+  const fetchMessages = async () => {
     setLoading(true);
     try {
       const response = await getMySupportMessages('customer', customerPhone);
-      setMessages(response.data.messages || []);
+      setMessages(response.messages || []);
       scrollToBottom();
     } catch (error) {
       console.error('Error fetching messages:', error);
@@ -65,12 +48,12 @@ export default function CustomerSupport() {
 
     setSending(true);
     try {
-      await sendSupportMessage(newMessage.trim(), 'customer', customerId, customerPhone);
+      await sendSupportMessage(newMessage.trim(), 'customer', customerPhone, customerPhone);
       setNewMessage('');
       await fetchMessages();
     } catch (error) {
       console.error('Error sending message:', error);
-      alert(error.response?.data?.error || 'Failed to send message. Please try again.');
+      alert('Failed to send message. Please try again.');
     } finally {
       setSending(false);
     }

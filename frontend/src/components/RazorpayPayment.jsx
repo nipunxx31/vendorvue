@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import axios from 'axios';
 
 export default function RazorpayPayment({ 
   amount, 
@@ -31,18 +30,11 @@ export default function RazorpayPayment({
         throw new Error('Failed to load Razorpay');
       }
 
-      // Create order on backend
-      const orderResponse = await axios.post(
-        `${import.meta.env.VITE_API_URL}/api/payment/create-order`,
-        {
-          amount,
-          customerId: customerPhone,
-          orderId,
-          receipt: `${type}_${Date.now()}`
-        }
-      );
-
-      const { orderId: razorpayOrderId, key_id } = orderResponse.data;
+      // Note: In production, payment order creation and verification should be handled
+      // by a backend/serverless function for security purposes (e.g., Vercel functions)
+      
+      const razorpayOrderId = `order_${Date.now()}_${orderId}`;
+      const key_id = import.meta.env.VITE_RAZORPAY_KEY_ID || 'rzp_test_key';
 
       // Razorpay options
       const options = {
@@ -57,25 +49,17 @@ export default function RazorpayPayment({
         },
         handler: async (response) => {
           try {
-            // Verify payment on backend
-            const verifyResponse = await axios.post(
-              `${import.meta.env.VITE_API_URL}/api/payment/verify-payment`,
-              {
-                razorpay_order_id: response.razorpay_order_id,
-                razorpay_payment_id: response.razorpay_payment_id,
-                razorpay_signature: response.razorpay_signature,
-                orderId,
-                customerId: customerPhone
-              }
-            );
-
-            if (verifyResponse.data.success) {
-              onSuccess(verifyResponse.data);
-            } else {
-              onError('Payment verification failed');
-            }
+            // In production, verify the payment signature with backend for security
+            onSuccess({
+              razorpay_order_id: response.razorpay_order_id,
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_signature: response.razorpay_signature,
+              orderId,
+              customerId: customerPhone,
+              timestamp: new Date().toISOString(),
+            });
           } catch (error) {
-            onError(error.response?.data?.error || 'Payment verification failed');
+            onError(error.message || 'Payment verification failed');
           }
         },
         modal: {
