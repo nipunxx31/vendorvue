@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>VendorVue</title>
+</head>
+<body>
+  <h1>VendorVue Frontend</h1>
+
+  <button onclick="checkAPI()">Check Backend</button>
+
+  <script>
+    async function checkAPI(){
+      const res = await fetch("/api/test")
+      const data = await res.json()
+      alert(data.message)
+    }
+  </script>
+</body>
+</html>
