@@ -58,8 +58,10 @@ export default function VendorLogin() {
       }
 
       // Store vendor info in localStorage
-      localStorage.setItem('vendorId', response.data.vendor._id);
-      localStorage.setItem('vendorPhone', response.data.vendor.phone);
+      const vendor = response.data.vendor;
+      localStorage.setItem('vendorUid', vendor.uid);
+      localStorage.setItem('vendorId', vendor._id || vendor.uid);
+      localStorage.setItem('vendorPhone', vendor.phone);
       localStorage.setItem('isVendor', 'true');
 
       navigate('/vendor/dashboard');

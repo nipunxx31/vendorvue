@@ -191,6 +191,7 @@ export default function CustomerLogin() {
       const customer = response.data.customer;
 
       // Store customer info in localStorage
+      localStorage.setItem('customerUid', customer.uid);
       localStorage.setItem('customerPhone', customer.phone);
       localStorage.setItem('customerName', customer.name || '');
       if (customer.location) {

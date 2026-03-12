@@ -5,7 +5,7 @@ import VideoBackground from '../../components/VideoBackground';
 
 export default function AdminLogin() {
   const navigate = useNavigate();
-  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -21,9 +21,10 @@ export default function AdminLogin() {
     e.preventDefault();
     setLoading(true);
     try {
-      const res = await adminLogin(username.trim(), password);
+      const res = await adminLogin(email.trim(), password);
       localStorage.setItem('adminToken', res.data.token);
-      localStorage.setItem('adminUsername', res.data.admin?.username || username.trim());
+      localStorage.setItem('adminUid', res.data.token);
+      localStorage.setItem('adminUsername', res.data.admin?.username || email.trim());
       navigate('/admin');
     } catch (err) {
       alert(err.response?.data?.error || 'Admin login failed');
@@ -44,12 +45,13 @@ export default function AdminLogin() {
 
         <form onSubmit={handleSubmit} className="space-y-5">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Username</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
             <input
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-600 focus:border-transparent"
-              placeholder="admin"
+              placeholder="admin@vendorvue.local"
               required
             />
           </div>

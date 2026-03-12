@@ -12,9 +12,15 @@ import {
     updateDoc,
     deleteDoc,
     addDoc,
+    setDoc,
     Timestamp,
 } from 'firebase/firestore';
 import { db } from '../firebase';
+import {
+    createUserWithEmailAndPassword,
+    signInWithEmailAndPassword,
+} from 'firebase/auth';
+import { auth } from '../firebase';
 import { uploadFile, getFileUrl } from '../firebaseServices/storageService';
 import {
     createOrder,
@@ -45,15 +51,126 @@ export const getImageUrl = (imagePath) => {
     return imagePath;
 };
 
-// ==================== Authentication - Handled by Firebase Auth ====================
-// Use Firebase Authentication directly for login/registration
-// See: authService.js for auth operations
+// ==================== Authentication - Firebase Auth ====================
+// Firebase Authentication for login/registration
+
+// Helper function to generate email from phone
+const generateEmailFromPhone = (phone) => {
+    return `${phone}@vendorvue.local`;
+};
+
+// Register customer with Firebase Auth and Firestore
+export const registerCustomer = async (data) => {
+    try {
+        const email = generateEmailFromPhone(data.phone);
+        
+        // Create Firebase Auth user
+        const userCredential = await createUserWithEmailAndPassword(auth, email, data.password);
+        const user = userCredential.user;
+
+        // Create customer document in Firestore
+        const customerData = {
+            uid: user.uid,
+            phone: data.phone,
+            name: data.name,
+            password: data.password, // Store plain password for phone/password login approach
+            location: data.location,
+            wallet: 0,
+            createdAt: Timestamp.now(),
+            email: email,
+        };
+
+        await setDoc(doc(db, 'customers', user.uid), customerData);
+
+        return {
+            data: {
+                customer: {
+                    uid: user.uid,
+                    phone: data.phone,
+                    name: data.name,
+                    location: data.location,
+                }
+            }
+        };
+    } catch (error) {
+        console.error('Customer registration error:', error);
+        throw { response: { data: { error: error.message } } };
+    }
+};
+
+// Login customer with Firebase Auth
+export const loginCustomer = async (phone, password) => {
+    try {
+        const email = generateEmailFromPhone(phone);
+
+        // Sign in with Firebase Auth
+        const userCredential = await signInWithEmailAndPassword(auth, email, password);
+        const user = userCredential.user;
+
+        // Get customer data from Firestore
+        const customerDoc = await getDoc(doc(db, 'customers', user.uid));
+        if (!customerDoc.exists()) {
+            throw new Error('Customer profile not found');
+        }
+
+        const customerData = customerDoc.data();
+        return {
+            data: {
+                customer: {
+                    uid: user.uid,
+                    phone: customerData.phone,
+                    name: customerData.name,
+                    location: customerData.location,
+                }
+            }
+        };
+    } catch (error) {
+        console.error('Customer login error:', error);
+        throw { response: { data: { error: error.message } } };
+    }
+};
 
 // ==================== Vendor APIs ====================
 
-export const registerVendor = (data) => {
-    // Use Firebase Auth for registration, then create vendor document
-    return createVendor(data.vendorId || data.uid, data);
+export const registerVendor = async (data) => {
+    try {
+        const email = generateEmailFromPhone(data.phone);
+
+        // Create Firebase Auth user
+        const userCredential = await createUserWithEmailAndPassword(auth, email, data.password);
+        const user = userCredential.user;
+
+        // Create vendor document in Firestore
+        const vendorData = {
+            uid: user.uid,
+            phone: data.phone,
+            name: data.name,
+            category: data.category,
+            location: data.location,
+            password: data.password,
+            createdAt: Timestamp.now(),
+            email: email,
+            isOpen: true,
+        };
+
+        await setDoc(doc(db, 'vendors', user.uid), vendorData);
+
+        return {
+            data: {
+                vendor: {
+                    _id: user.uid,
+                    uid: user.uid,
+                    phone: data.phone,
+                    name: data.name,
+                    category: data.category,
+                    location: data.location,
+                }
+            }
+        };
+    } catch (error) {
+        console.error('Vendor registration error:', error);
+        throw { response: { data: { error: error.message } } };
+    }
 };
 
 export const getVendorById = (id) => getVendor(id);
@@ -64,10 +181,37 @@ export const getVendorMenu = (id) => {
     return getDocs(query(collection(db, 'menus'), where('vendorId', '==', id)));
 };
 
-export const loginVendor = (phone, password) => {
-    // Use Firebase Auth for login verification
-    console.warn('Use Firebase Authentication service for vendor login');
-    return Promise.resolve(); // Handled by authService
+export const loginVendor = async (phone, password) => {
+    try {
+        const email = generateEmailFromPhone(phone);
+
+        // Sign in with Firebase Auth
+        const userCredential = await signInWithEmailAndPassword(auth, email, password);
+        const user = userCredential.user;
+
+        // Get vendor data from Firestore
+        const vendorDoc = await getDoc(doc(db, 'vendors', user.uid));
+        if (!vendorDoc.exists()) {
+            throw new Error('Vendor profile not found');
+        }
+
+        const vendorData = vendorDoc.data();
+        return {
+            data: {
+                vendor: {
+                    _id: user.uid,
+                    uid: user.uid,
+                    phone: vendorData.phone,
+                    name: vendorData.name,
+                    category: vendorData.category,
+                    location: vendorData.location,
+                }
+            }
+        };
+    } catch (error) {
+        console.error('Vendor login error:', error);
+        throw { response: { data: { error: error.message } } };
+    }
 };
 
 // ==================== Menu APIs ====================
@@ -143,21 +287,7 @@ export const submitRating = (id, rating, ratingComment) => {
     });
 };
 
-// ==================== Customer APIs ====================
-
-export const registerCustomer = (data) => {
-    // Use Firebase Auth for registration
-    return addDoc(collection(db, 'customers'), {
-        ...data,
-        createdAt: Timestamp.now(),
-    });
-};
-
-export const loginCustomer = (phone, password) => {
-    // Use Firebase Auth for login
-    console.warn('Use Firebase Authentication service for customer login');
-    return Promise.resolve();
-};
+// ==================== Customer Wallet APIs ====================
 
 export const getCustomerWallet = (phone) => {
     return getDocs(query(collection(db, 'customers'), where('phone', '==', phone))).then((snap) => {
@@ -240,10 +370,35 @@ export const uploadMenuItemImage = (id, formData) => {
 
 // ==================== Admin APIs ====================
 
-export const adminLogin = (username, password) => {
-    // Use Firebase Auth with custom claims for admin role
-    console.warn('Use Firebase Authentication service for admin login');
-    return Promise.resolve();
+export const adminLogin = async (email, password) => {
+    try {
+        // Sign in with Firebase Auth
+        const userCredential = await signInWithEmailAndPassword(auth, email, password);
+        const user = userCredential.user;
+
+        // Get admin data from Firestore
+        const adminDoc = await getDoc(doc(db, 'admins', user.uid));
+        if (!adminDoc.exists()) {
+            throw new Error('Admin profile not found');
+        }
+
+        const adminData = adminDoc.data();
+        
+        // For compatibility with existing code, return a token-like structure
+        return {
+            data: {
+                token: user.uid,
+                admin: {
+                    uid: user.uid,
+                    username: adminData.username || adminData.email,
+                    email: adminData.email,
+                }
+            }
+        };
+    } catch (error) {
+        console.error('Admin login error:', error);
+        throw { response: { data: { error: error.message } } };
+    }
 };
 
 export const adminGetVendors = (token) => {
